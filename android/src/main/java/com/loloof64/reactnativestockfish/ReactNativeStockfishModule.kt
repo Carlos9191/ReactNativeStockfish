@@ -35,7 +35,7 @@ class ReactNativeStockfishModule(reactContext: ReactApplicationContext) :
     }
   }
 
-  private val mainCoroutineScope = CoroutineScope(Dispatchers.Default)
+  private var mainCoroutineScope = CoroutineScope(Dispatchers.Default)
   private var outputReaderCoroutineScope = CoroutineScope(Dispatchers.Default)
   private var errorReaderCoroutineScope = CoroutineScope(Dispatchers.Default)
   private var stockfishThread: Thread? = null
@@ -91,12 +91,16 @@ class ReactNativeStockfishModule(reactContext: ReactApplicationContext) :
     globalReactContext = reactApplicationContext
     val delayTimeMs = 1L  // Reduced from 10ms to 1ms for 10x faster response
     
-    // Create new coroutine scopes for fresh start
-    outputReaderCoroutineScope = CoroutineScope(Dispatchers.Default)
-    errorReaderCoroutineScope = CoroutineScope(Dispatchers.Default)
-    globalOutputReaderCoroutineScope = outputReaderCoroutineScope
-    globalErrorReaderCoroutineScope = errorReaderCoroutineScope
-    
+    if (!mainCoroutineScope.isActive) {
+      mainCoroutineScope = CoroutineScope(Dispatchers.Default)
+    }
+    if (!outputReaderCoroutineScope.isActive) {
+      outputReaderCoroutineScope = CoroutineScope(Dispatchers.Default)
+    }
+    if (!errorReaderCoroutineScope.isActive) {
+      errorReaderCoroutineScope = CoroutineScope(Dispatchers.Default)
+    }
+
     stockfishThread = Thread {
       Thread.sleep(delayTimeMs)
       main()

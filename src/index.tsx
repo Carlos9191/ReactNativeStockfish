@@ -29,6 +29,16 @@ type UseStockfishOptions = {
  */
 export function useStockfish({ onOutput, onError }: UseStockfishOptions) {
   const isStockfishRunning = useRef(false);
+  const onOutputRef = useRef(onOutput);
+  const onErrorRef = useRef(onError);
+
+  useEffect(() => {
+    onOutputRef.current = onOutput;
+  }, [onOutput]);
+
+  useEffect(() => {
+    onErrorRef.current = onError;
+  }, [onError]);
 
   const stockfishLoop = useCallback(() => {
     if (!isStockfishRunning.current) {
@@ -55,27 +65,28 @@ export function useStockfish({ onOutput, onError }: UseStockfishOptions) {
   useEffect(() => {
     const cancelOutputSubscription = _subscribeToStockfishOutput(
       (output: string) => {
-        if (isStockfishRunning.current && onOutput) {
-          onOutput(output);
+        if (isStockfishRunning.current) {
+          onOutputRef.current?.(output);
         }
       }
     );
 
     const cancelErrorSubscription = _subscribeToStockfishError(
       (error: string) => {
-        if (isStockfishRunning.current && onError) {
-          onError(error);
+        if (isStockfishRunning.current) {
+          onErrorRef.current?.(error);
         }
       }
     );
 
     return () => {
-      // Clean up subscriptions and stop Stockfish
+      // Stop native engine before removing listeners to avoid a no-listener race
+      // if native emits final output during shutdown.
+      stopStockfish();
       cancelOutputSubscription();
       cancelErrorSubscription();
-      stopStockfish();
     };
-  }, [onOutput, onError, stopStockfish]);
+  }, [stopStockfish]);
 
   return { stockfishLoop, stopStockfish, sendCommandToStockfish };
 }
