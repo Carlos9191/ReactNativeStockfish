@@ -13,7 +13,15 @@ bool FakeStream::try_get_line(std::string& val) {
 void FakeStream::close() {
     std::lock_guard<std::mutex> lock(mutex_guard);
     closed = true;
-    mutex_signal.notify_one();
+    // Wake every blocked reader so none stays parked on a dead stream.
+    mutex_signal.notify_all();
+}
+
+void FakeStream::reopen() {
+    std::lock_guard<std::mutex> lock(mutex_guard);
+    std::queue<std::string> empty;
+    string_queue.swap(empty);
+    closed = false;
 }
 bool FakeStream::is_closed() { return closed; }
 

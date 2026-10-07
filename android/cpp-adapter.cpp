@@ -3,13 +3,21 @@
 #include "react-native-stockfish.h"
 
 #define STR_SIZE 1024
-char conv_buffer[STR_SIZE + 1];
-char err_conv_buffer[STR_SIZE + 1];
+// Per-thread: overlapping reader coroutines must never share a copy buffer.
+thread_local char conv_buffer[STR_SIZE + 1];
+thread_local char err_conv_buffer[STR_SIZE + 1];
 
-extern "C" JNIEXPORT jdouble JNICALL
+extern "C" JNIEXPORT void JNICALL
+Java_com_loloof64_reactnativestockfish_ReactNativeStockfishModule_prepareLaunch(JNIEnv *env, jclass type)
+{
+    reactnativestockfish::stockfish_prepare_launch();
+}
+
+// Kotlin declares `external fun main()` (void); match that signature.
+extern "C" JNIEXPORT void JNICALL
 Java_com_loloof64_reactnativestockfish_ReactNativeStockfishModule_main(JNIEnv *env, jclass type)
 {
-    return reactnativestockfish::stockfish_main();
+    reactnativestockfish::stockfish_main();
 }
 
 extern "C" JNIEXPORT jboolean JNICALL

@@ -8,14 +8,29 @@
 
 int stockfish_core(int, char **);
 
-std::string data;
-std::string err_data;
-char buffer[BUFFER_SIZE + 1];
-char err_buffer[BUFFER_SIZE + 1];
+// Per-thread scratch space. Each stdout/stderr read pops one queue entry and
+// copies it here; if two host readers ever overlap (e.g. a stale reader that
+// has not yet exited after a relaunch), shared buffers would let one reader
+// overwrite the other's token before it was handed to the host.
+thread_local std::string data;
+thread_local std::string err_data;
+thread_local char buffer[BUFFER_SIZE + 1];
+thread_local char err_buffer[BUFFER_SIZE + 1];
 
 namespace reactnativestockfish
 {
 	const char *QUITOK = "quit\n";
+
+	void stockfish_prepare_launch()
+	{
+		// A previous run closes the streams on exit; re-arm them so a relaunch
+		// after `quit` has live stdin/stdout instead of silently dropping I/O.
+		// Done by the host before the engine thread starts so that commands
+		// queued immediately after launch (uci / isready) are never dropped.
+		fakein.reopen();
+		fakeout.reopen();
+		fakeerr.reopen();
+	}
 
 	int stockfish_main()
 	{

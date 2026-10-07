@@ -2,11 +2,14 @@
 
 #ifndef _STREAM_FIX_H_
 #define _STREAM_FIX_H_
+#include <atomic>
 #include <condition_variable>
 #include <iostream>
 #include <mutex>
 #include <queue>
 #include <sstream>
+#include <string>
+#include <utility>
 
 template <typename T>
 inline std::string stringify(const T& input) {
@@ -20,8 +23,15 @@ class FakeStream {
     template <typename T>
     FakeStream& operator<<(const T& val) {
         if (closed) return *this;
+        // Stringify BEFORE taking the queue lock. For SyncCout values
+        // (IO_LOCK / IO_UNLOCK) stringify acquires Stockfish's global output
+        // mutex; doing that while holding mutex_guard inverts the lock order
+        // against a thread that holds the output mutex mid-line and is
+        // pushing its next operand, which deadlocks the engine's output.
+        std::string item = stringify(val);
         std::lock_guard<std::mutex> lock(mutex_guard);
-        string_queue.push(stringify(val));
+        if (closed) return *this;
+        string_queue.push(std::move(item));
         mutex_signal.notify_one();
         return *this;
     };
@@ -40,13 +50,16 @@ class FakeStream {
     bool try_get_line(std::string& val);
 
     void close();
+    // Re-arm a stream that was closed by a previous engine run so the next
+    // stockfish_main() can use it. Discards any leftover entries.
+    void reopen();
     bool is_closed();
 
     std::streambuf* rdbuf();
     std::streambuf* rdbuf(std::streambuf* __sb);
 
    private:
-    bool closed = false;
+    std::atomic<bool> closed{false};
     std::queue<std::string> string_queue;
     //std::string line;
     std::mutex mutex_guard;

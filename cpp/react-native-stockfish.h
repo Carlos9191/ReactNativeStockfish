@@ -15,6 +15,12 @@
 
 namespace reactnativestockfish
 {
+  // Re-arms the stdin/stdout/stderr streams for a fresh engine run. Call from
+  // the host BEFORE starting the thread that runs stockfish_main(), once the
+  // previous engine thread (if any) has exited: a finished run closes the
+  // streams, and commands written before re-arming would be dropped.
+  void stockfish_prepare_launch();
+
   // Runs the main stockfish loop
   int stockfish_main();
 
